@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import './App.css';
 import { questionsBank } from './questionsData';
 
@@ -234,17 +234,23 @@ function App() {
         </div>
 
         <div className="question-grid">
-          {selectedQuestions.map((_, index) => (
-            <div
-              key={index}
-              className={`question-number-box ${
-                index === currentQuestionIndex ? 'active' : ''
-              } ${userAnswers[index] !== null ? 'answered' : ''}`}
-              onClick={() => setCurrentQuestionIndex(index)}
-            >
-              {index + 1}
-            </div>
-          ))}
+          {selectedQuestions.map((question, index) => {
+            const isAnswered = userAnswers[index] !== null;
+            const isCorrect = isAnswered && userAnswers[index] === question.correctAnswer;
+            const isIncorrect = isAnswered && userAnswers[index] !== question.correctAnswer;
+
+            return (
+              <div
+                key={index}
+                className={`question-number-box ${
+                  index === currentQuestionIndex ? 'active' : ''
+                } ${isCorrect ? 'answered' : ''} ${isIncorrect ? 'incorrect' : ''}`}
+                onClick={() => setCurrentQuestionIndex(index)}
+              >
+                {index + 1}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

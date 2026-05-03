@@ -304,6 +304,17 @@
   color: white;
 }
 
+.question-number-box.incorrect {
+  background-color: #f8d7da;
+  border-color: #f44336;
+}
+
+.question-number-box.incorrect.active {
+  background-color: #f44336;
+  border-color: #f44336;
+  color: white;
+}
+
 /* Natijalar sahifasi */
 .result-container {
   max-width: 900px;
