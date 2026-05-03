@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 import { questionsBank } from './questionsData';
 
@@ -9,9 +9,71 @@ function App() {
   const [userAnswers, setUserAnswers] = useState([]);
   const [testFinished, setTestFinished] = useState(false);
   const [score, setScore] = useState(0);
+  const [testMode, setTestMode] = useState(null); // '50', 'all', 'timed'
+  const [timeLeft, setTimeLeft] = useState(null); // Qolgan vaqt (soniyalarda)
+  const [startTime, setStartTime] = useState(null); // Test boshlangan vaqt
 
-  // Test boshlanganda 50 ta random savol tanlash
-  const startTest = () => {
+  // LocalStorage dan ma'lumotlarni yuklash
+  useEffect(() => {
+    const savedTest = localStorage.getItem('currentTest');
+    if (savedTest) {
+      const testData = JSON.parse(savedTest);
+      setTestStarted(testData.testStarted);
+      setCurrentQuestionIndex(testData.currentQuestionIndex);
+      setSelectedQuestions(testData.selectedQuestions);
+      setUserAnswers(testData.userAnswers);
+      setTestFinished(testData.testFinished);
+      setScore(testData.score);
+      setTestMode(testData.testMode);
+      setTimeLeft(testData.timeLeft);
+      setStartTime(testData.startTime);
+    }
+  }, []);
+
+  // Ma'lumotlarni localStorage ga saqlash
+  useEffect(() => {
+    if (testStarted) {
+      const testData = {
+        testStarted,
+        currentQuestionIndex,
+        selectedQuestions,
+        userAnswers,
+        testFinished,
+        score,
+        testMode,
+        timeLeft,
+        startTime
+      };
+      localStorage.setItem('currentTest', JSON.stringify(testData));
+    }
+  }, [testStarted, currentQuestionIndex, selectedQuestions, userAnswers, testFinished, score, testMode, timeLeft, startTime]);
+
+  // Taymer
+  useEffect(() => {
+    if (testMode === 'timed' && testStarted && !testFinished && timeLeft !== null) {
+      if (timeLeft <= 0) {
+        // Vaqt tugadi - testni avtomatik tugatish
+        finishTest();
+        return;
+      }
+
+      const timer = setInterval(() => {
+        setTimeLeft(prev => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            finishTest();
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }
+  }, [testMode, testStarted, testFinished, timeLeft]);
+
+  // Test boshlanganda savol tanlash
+  const startTest = (mode) => {
     // Fisher-Yates shuffle algoritmi
     const shuffleArray = (array) => {
       const newArray = [...array];
@@ -22,8 +84,26 @@ function App() {
       return newArray;
     };
 
-    const shuffled = shuffleArray(questionsBank);
-    const selected = shuffled.slice(0, 50);
+    let selected;
+    let questionCount;
+
+    if (mode === '50') {
+      // 50 ta random savol
+      const shuffled = shuffleArray(questionsBank);
+      selected = shuffled.slice(0, 50);
+      questionCount = 50;
+    } else if (mode === 'timed') {
+      // 30 minutlik test - 50 ta savol
+      const shuffled = shuffleArray(questionsBank);
+      selected = shuffled.slice(0, 50);
+      questionCount = 50;
+      setTimeLeft(30 * 60); // 30 minut = 1800 soniya
+      setStartTime(Date.now());
+    } else {
+      // Barcha savollar (random tartibda)
+      selected = shuffleArray(questionsBank);
+      questionCount = questionsBank.length;
+    }
 
     // Har bir savol uchun javoblarni ham random qilish
     const questionsWithShuffledOptions = selected.map(question => {
@@ -44,11 +124,12 @@ function App() {
     });
 
     setSelectedQuestions(questionsWithShuffledOptions);
-    setUserAnswers(new Array(50).fill(null));
+    setUserAnswers(new Array(questionCount).fill(null));
     setTestStarted(true);
     setCurrentQuestionIndex(0);
     setTestFinished(false);
     setScore(0);
+    setTestMode(mode);
   };
 
   // Javobni tanlash
@@ -88,16 +169,41 @@ function App() {
     setTestFinished(true);
   };
 
+  // Testni qaytadan boshlash
+  const restartTest = () => {
+    localStorage.removeItem('currentTest');
+    setTestStarted(false);
+    setTestFinished(false);
+    setTestMode(null);
+    setSelectedQuestions([]);
+    setUserAnswers([]);
+    setCurrentQuestionIndex(0);
+    setScore(0);
+    setTimeLeft(null);
+    setStartTime(null);
+  };
+
   // Bosh sahifa
   if (!testStarted) {
     return (
       <div className="App">
         <div className="welcome-container">
           <h1>Test Platformasi</h1>
-          <p>50 ta savoldan iborat test</p>
-          <button className="start-button" onClick={startTest}>
-            Testni Boshlash
-          </button>
+          <p>Test rejimini tanlang</p>
+          <div className="mode-buttons">
+            <button className="mode-button" onClick={() => startTest('50')}>
+              <span className="mode-title">50 ta savol</span>
+              <span className="mode-desc">Tasodifiy 50 ta savol</span>
+            </button>
+            <button className="mode-button" onClick={() => startTest('timed')}>
+              <span className="mode-title">30 minutlik test</span>
+              <span className="mode-desc">50 ta savol, 30 minut</span>
+            </button>
+            <button className="mode-button" onClick={() => startTest('all')}>
+              <span className="mode-title">Barcha savollar</span>
+              <span className="mode-desc">{questionsBank.length} ta savol</span>
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -109,7 +215,12 @@ function App() {
     return (
       <div className="App">
         <div className="result-container">
-          <h1>Test Natijalari</h1>
+          <div className="result-header">
+            <h1>Test Natijalari</h1>
+            <button className="home-button" onClick={restartTest}>
+              🏠 Bosh sahifa
+            </button>
+          </div>
           <div className="score-display">
             <h2>{score} / {selectedQuestions.length}</h2>
             <p className="percentage">{percentage}%</p>
@@ -138,10 +249,7 @@ function App() {
               );
             })}
           </div>
-          <button className="restart-button" onClick={() => {
-            setTestStarted(false);
-            setTestFinished(false);
-          }}>
+          <button className="restart-button" onClick={restartTest}>
             Qaytadan Boshlash
           </button>
         </div>
@@ -153,12 +261,27 @@ function App() {
   const currentQuestion = selectedQuestions[currentQuestionIndex];
   const answeredCount = userAnswers.filter(answer => answer !== null).length;
 
+  // Vaqtni formatlash (mm:ss)
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="App">
       <div className="test-container">
         <div className="test-header">
           <h2>Test</h2>
+          <button className="home-button-small" onClick={restartTest}>
+            🏠 Bosh sahifa
+          </button>
           <div className="progress">
+            {testMode === 'timed' && timeLeft !== null && (
+              <p className={`timer ${timeLeft < 300 ? 'timer-warning' : ''}`}>
+                ⏱️ Qolgan vaqt: {formatTime(timeLeft)}
+              </p>
+            )}
             <p>Savol {currentQuestionIndex + 1} / {selectedQuestions.length}</p>
             <p>Javob berilgan: {answeredCount} / {selectedQuestions.length}</p>
           </div>
