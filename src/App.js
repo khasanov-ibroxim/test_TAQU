@@ -70,6 +70,7 @@ function App() {
 
       return () => clearInterval(timer);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [testMode, testStarted, testFinished, timeLeft]);
 
   // Test boshlanganda savol tanlash
